@@ -213,14 +213,39 @@ CloseButton.TextSize = 16.000
 
 ExecuteButton.MouseButton1Click:Connect(function()
 	local scriptText = CodeBox.Text
-	local func, err = loadstring(scriptText)
+	local func, err = nil, nil
+	
+	-- Try exploit loadstring first
+	local successLoad, res = pcall(function()
+		return loadstring(scriptText)
+	end)
+	
+	if successLoad and type(res) == "function" then
+		func = res
+	else
+		-- If native loadstring failed, try to load FiOne Luau VM
+		local successVM, VM = pcall(function()
+			return loadstring(game:HttpGet("https://raw.githubusercontent.com/TheRealAy3/FiOne/main/source.lua"))()
+		end)
+		if successVM and VM then
+			local funcVM, errVM = VM.luau_load(scriptText)
+			if funcVM then
+				func = funcVM
+			else
+				err = errVM
+			end
+		else
+			err = "loadstring is not supported in this environment"
+		end
+	end
+
 	if func then
-		local success, execErr = pcall(func)
-		if not success then
+		local ok, execErr = pcall(func)
+		if not ok then
 			warn("Execution Error: " .. tostring(execErr))
 		end
 	else
-		warn("Syntax Error: " .. tostring(err))
+		warn("Execution Error: " .. tostring(err))
 	end
 end)
 
@@ -265,7 +290,7 @@ MainFrame.InputBegan:Connect(function(input)
 		dragging = true
 		dragStart = input.Position
 		startPos = MainFrame.Position
-
+		
 		input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
 				dragging = false
